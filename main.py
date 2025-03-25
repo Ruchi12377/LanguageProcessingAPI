@@ -20,7 +20,7 @@ allowed_domain = "example.com"
 def parse():
     referrer = request.referrer
 
-    if not referrer or allowed_domain not in refferrer:
+    if not referrer or allowed_domain not in referrer:
         return jsonify({"error": "Access denied"}), 403
 
     text = request.args.get("text", "")
@@ -32,7 +32,7 @@ def parse():
 def distance():
     referrer = request.referrer
 
-    if not refferrer or allowed_domain not in refferrer:
+    if not referrer or allowed_domain not in referrer:
         return jsonify({"error": "Access denied"}), 403
 
     if request.headers.get("Content-Type") != "application/json":
