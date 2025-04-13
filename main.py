@@ -141,7 +141,7 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
         # 元の単語がボキャブラリーにあればそのまま類似度を計算
         if isWord1InVocab and isWord2InVocab:
             try:
-                similarity = model.similarity(word1, word2)
+                similarity = str(model.similarity(word1, word2))
             except:
                 errorMessage = f"Failed to calculate similarity between '{word1}' and '{word2}'"
         else:
