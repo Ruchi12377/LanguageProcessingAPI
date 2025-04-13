@@ -5,6 +5,7 @@ import gensim
 import MeCab
 from typing import List, Dict, Any, Tuple, Optional
 from flask_cors import CORS
+import re
 
 # 環境変数の読み込み
 load_dotenv()
@@ -82,6 +83,40 @@ def distance() -> Dict[str, Any]:
         "error": ""
     })
 
+def split_by_capitals(word: str) -> List[str]:
+    """英語の単語を大文字で分割する。ただし、大文字が連続している場合（acronym）は分割しない。
+    
+    Args:
+        word (str): 分割する単語
+        
+    Returns:
+        List[str]: 分割された単語のリスト
+    """
+    if not word:
+        return []
+        
+    # 連続する大文字を一つのグループとし、その後の小文字も含めたパターン
+    pattern = r'[A-Z]+[a-z]*'
+    
+    # 単語の先頭が小文字の場合、それを最初の部分として取得
+    first_part = ""
+    if word and word[0].islower():
+        match = re.match(r'^[a-z]+', word)
+        if match:
+            first_part = match.group(0)
+            word = word[len(first_part):]
+    
+    # 残りの部分を大文字のパターンで分割
+    parts = re.findall(pattern, word)
+    
+    # 先頭の小文字部分があれば追加
+    result = []
+    if first_part:
+        result.append(first_part)
+    result.extend(parts)
+    
+    return [p for p in result if p]
+
 def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
     """単語ペアの処理を行い類似度を計算する
 
@@ -98,19 +133,66 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
         if word1 == "" or word2 == "":
             continue
 
-        similarity = ""
+        similarity = 0
         errorMessage = ""
         isWord1InVocab = word1 in model
         isWord2InVocab = word2 in model
+        
+        # 元の単語がボキャブラリーにあればそのまま類似度を計算
         if isWord1InVocab and isWord2InVocab:
-            similarity = str(model.similarity(word1, word2))
+            try:
+                similarity = model.similarity(word1, word2)
+            except:
+                errorMessage = f"Failed to calculate similarity between '{word1}' and '{word2}'"
+        else:
+            # ボキャブラリーにない単語の処理
+            processed_word1 = word1
+            processed_word2 = word2
+            
+            # 英語の単語で辞書にない場合は大文字で分割を試みる
+            if not isWord1InVocab and any(c.isupper() for c in word1):
+                split_words1 = split_by_capitals(word1)
+                # 分割された単語がボキャブラリーにあるかチェック
+                if all(w in model for w in split_words1):
+                    processed_word1 = split_words1
+                    isWord1InVocab = True
+                
+            if not isWord2InVocab and any(c.isupper() for c in word2):
+                split_words2 = split_by_capitals(word2)
+                # 分割された単語がボキャブラリーにあるかチェック
+                if all(w in model for w in split_words2):
+                    processed_word2 = split_words2
+                    isWord2InVocab = True
+                
+            # 分割後の単語で類似度計算
+            if isWord1InVocab and isWord2InVocab:
+                try:
+                    # 分割された場合、分割された単語の平均ベクトルを使用
+                    if isinstance(processed_word1, list):
+                        vector1 = sum(model[w] for w in processed_word1) / len(processed_word1)
+                    else:
+                        vector1 = model[processed_word1]
+                    
+                    if isinstance(processed_word2, list):
+                        vector2 = sum(model[w] for w in processed_word2) / len(processed_word2)
+                    else:
+                        vector2 = model[processed_word2]
+                    
+                    # cosine_similarityでベクトル間の類似度を計算
+                    from numpy import dot
+                    from numpy.linalg import norm
+                    similarity = dot(vector1, vector2) / (norm(vector1) * norm(vector2))
+                except Exception as e:
+                    errorMessage = f"Failed to calculate similarity: {str(e)}"
 
-        if not isWord1InVocab and not isWord2InVocab:
-            errorMessage = f"'{word1}' and '{word2}' not found in the vocabulary"
-        elif not isWord1InVocab:
-            errorMessage = f"'{word1}' not found in the vocabulary"
-        elif not isWord2InVocab:
-            errorMessage = f"'{word2}' not found in the vocabulary"
+        # エラーメッセージの設定
+        if not errorMessage:
+            if not isWord1InVocab and not isWord2InVocab:
+                errorMessage = f"'{word1}' and '{word2}' not found in the vocabulary"
+            elif not isWord1InVocab:
+                errorMessage = f"'{word1}' not found in the vocabulary"
+            elif not isWord2InVocab:
+                errorMessage = f"'{word2}' not found in the vocabulary"
 
         result.append({
             "word1": word1,
