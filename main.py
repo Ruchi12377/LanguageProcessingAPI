@@ -4,40 +4,63 @@ from flask_cors import CORS
 import os
 import gensim
 import MeCab
+from typing import List, Dict, Any, Tuple, Optional
 
+# 環境変数の読み込み
 load_dotenv()
 
+# アプリケーション初期化
 app = Flask(__name__)
 mecab = MeCab.Tagger()
 
-model_path = "./model_gensim_norm"
-if not os.path.exists(model_path):
-    raise FileNotFoundError(f"Model file not found at {model_path}")
-model = gensim.models.KeyedVectors.load(model_path, mmap='r')
+# モデル読み込み
+MODEL_PATH = "./model_gensim_norm"
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+model = gensim.models.KeyedVectors.load(MODEL_PATH, mmap='r')
 
-allowed_domain = os.getenv("ALLOWED_DOMAIN", "example.com")
+# CORSの設定
+allowed_domains = os.getenv("ALLOWED_DOMAIN", "example.com").split(",")
+CORS(app, resources={r"/*": {"origins": allowed_domains}})
 
-# Enable CORS for a specific domain
-CORS(app, resources={r"/*": {"origins": allowed_domain}})
+def validate_request() -> Optional[Tuple[Dict[str, str], int]]:
+    """リクエストの検証を行う共通関数
+
+    Returns:
+        Optional[Tuple[Dict[str, str], int]]: エラーがある場合はエラーレスポンスとステータスコード、なければNone
+    """
+    referrer = request.referrer
+    if not referrer or not any(domain in referrer for domain in allowed_domains):
+        return {"error": "Access denied"}, 403
+    return None
 
 @app.route("/parse", methods=["GET"])
-def parse():
-    referrer = request.referrer
+def parse() -> Dict[str, Any]:
+    """テキストを形態素解析する
 
-    if not referrer or allowed_domain not in referrer:
-        return jsonify({"error": "Access denied"}), 403
+    Returns:
+        Dict[str, Any]: 形態素解析の結果
+    """
+    error_response = validate_request()
+    if error_response:
+        return jsonify(error_response[0]), error_response[1]
 
     text = request.args.get("text", "")
     parsed = mecab.parse(text)
-    result = [{"surface": line.split("\t")[0], "feature": line.split("\t")[1]} for line in parsed.split("\n") if line and "\t" in line]
+    result = [{"surface": line.split("\t")[0], "feature": line.split("\t")[1]}
+              for line in parsed.split("\n") if line and "\t" in line]
     return jsonify(result)
 
 @app.route("/distance", methods=["GET"])
-def distance():
-    referrer = request.referrer
+def distance() -> Dict[str, Any]:
+    """単語間の類似度を計算する
 
-    if not referrer or allowed_domain not in referrer:
-        return jsonify({"error": "Access denied"}), 403
+    Returns:
+        Dict[str, Any]: 類似度計算の結果
+    """
+    error_response = validate_request()
+    if error_response:
+        return jsonify(error_response[0]), error_response[1]
 
     if request.headers.get("Content-Type") != "application/json":
         return jsonify({
@@ -52,6 +75,22 @@ def distance():
             "error": "Missing pairs"
         })
 
+    result = process_word_pairs(pairs)
+
+    return jsonify({
+        "pairs": result,
+        "error": ""
+    })
+
+def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
+    """単語ペアの処理を行い類似度を計算する
+
+    Args:
+        pairs (List): 単語ペアのリスト
+
+    Returns:
+        List[Dict[str, str]]: 類似度計算結果のリスト
+    """
     result = []
     for pair in pairs:
         word1 = pair[0] if pair[0] is not None else ""
@@ -80,10 +119,7 @@ def distance():
             "error": errorMessage
         })
 
-    return jsonify({
-        "pairs": result,
-        "error": ""
-    })
+    return result
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
