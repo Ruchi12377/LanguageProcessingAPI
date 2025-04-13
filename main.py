@@ -184,7 +184,7 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
                     similarity = dot(vector1, vector2) / (norm(vector1) * norm(vector2))
                 except Exception as e:
                     errorMessage = f"Failed to calculate similarity: {str(e)}"
-
+        
         # エラーメッセージの設定
         if not errorMessage:
             if not isWord1InVocab and not isWord2InVocab:
@@ -197,7 +197,7 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
         result.append({
             "word1": word1,
             "word2": word2,
-            "similarity": similarity,
+            "similarity": str(similarity) if isinstance(similarity, float) else similarity,
             "error": errorMessage
         })
 
