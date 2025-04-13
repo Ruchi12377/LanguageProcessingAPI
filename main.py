@@ -181,7 +181,7 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
                     # cosine_similarityでベクトル間の類似度を計算
                     from numpy import dot
                     from numpy.linalg import norm
-                    similarity = dot(vector1, vector2) / (norm(vector1) * norm(vector2))
+                    similarity = float(dot(vector1, vector2) / (norm(vector1) * norm(vector2)))
                 except Exception as e:
                     errorMessage = f"Failed to calculate similarity: {str(e)}"
         
