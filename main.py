@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os
 import gensim
 import MeCab
@@ -14,7 +15,10 @@ if not os.path.exists(model_path):
     raise FileNotFoundError(f"Model file not found at {model_path}")
 model = gensim.models.KeyedVectors.load(model_path, mmap='r')
 
-allowed_domain = "example.com"
+allowed_domain = os.getenv("ALLOWED_DOMAIN", "example.com")
+
+# Enable CORS for a specific domain
+CORS(app, resources={r"/*": {"origins": allowed_domain}})
 
 @app.route("/parse", methods=["GET"])
 def parse():
