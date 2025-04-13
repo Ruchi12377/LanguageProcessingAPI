@@ -1,3 +1,5 @@
+# TODO: 日本語の単語を分割する関数を追加する
+
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 import os
