@@ -4,4 +4,3 @@ python-dotenv
 gunicorn
 gensim
 mecab-python3
-gunicorn

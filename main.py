@@ -1,10 +1,10 @@
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 import os
 import gensim
 import MeCab
 from typing import List, Dict, Any, Tuple, Optional
+from flask_cors import CORS
 
 # 環境変数の読み込み
 load_dotenv()
