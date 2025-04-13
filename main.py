@@ -51,7 +51,7 @@ def parse() -> Dict[str, Any]:
               for line in parsed.split("\n") if line and "\t" in line]
     return jsonify(result)
 
-@app.route("/distance", methods=["GET"])
+@app.route("/distance", methods=["POST"])
 def distance() -> Dict[str, Any]:
     """単語間の類似度を計算する
 
