@@ -8,6 +8,8 @@ import MeCab
 from typing import List, Dict, Any, Tuple, Optional
 from flask_cors import CORS
 import re
+from numpy import dot
+from numpy.linalg import norm
 
 # 環境変数の読み込み
 load_dotenv()
@@ -181,8 +183,6 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
                         vector2 = model[processed_word2]
                     
                     # cosine_similarityでベクトル間の類似度を計算
-                    from numpy import dot
-                    from numpy.linalg import norm
                     similarity = float(dot(vector1, vector2) / (norm(vector1) * norm(vector2)))
                 except Exception as e:
                     errorMessage = f"Failed to calculate similarity: {str(e)}"
@@ -199,7 +199,7 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
         result.append({
             "word1": word1,
             "word2": word2,
-            "similarity": str(similarity) if isinstance(similarity, float) else similarity,
+            "similarity": similarity,
             "error": errorMessage
         })
 
