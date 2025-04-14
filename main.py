@@ -121,6 +121,46 @@ def split_by_capitals(word: str) -> List[str]:
     
     return [p for p in result if p]
 
+def split_by_caps_underscores_spaces(word: str) -> List[str]:
+    """英語の単語を大文字、アンダースコア、空白で分割する。
+    
+    Args:
+        word (str): 分割する単語
+        
+    Returns:
+        List[str]: 分割された単語のリスト
+    """
+    if not word:
+        return []
+    
+    # まず、アンダースコアと空白で分割
+    parts = re.split(r'[_\s]+', word)
+    result = []
+    
+    # 各部分をさらに大文字で分割
+    for part in parts:
+        if not part:
+            continue
+            
+        # 先頭が小文字の場合の処理
+        first_part = ""
+        current_part = part
+        if part and part[0].islower():
+            match = re.match(r'^[a-z0-9]+', part)
+            if match:
+                first_part = match.group(0)
+                current_part = part[len(first_part):]
+        
+        # 大文字で始まる部分を分割
+        cap_parts = re.findall(r'[A-Z]+[a-z0-9]*', current_part)
+        
+        # 結果に追加
+        if first_part:
+            result.append(first_part)
+        result.extend(cap_parts)
+    
+    return [p.lower() for p in result if p]
+
 def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
     """単語ペアの処理を行い類似度を計算する
 
@@ -152,17 +192,16 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
             # ボキャブラリーにない単語の処理
             processed_word1 = word1
             processed_word2 = word2
-            
-            # 英語の単語で辞書にない場合は大文字で分割を試みる
-            if not isWord1InVocab and any(c.isupper() for c in word1):
-                split_words1 = split_by_capitals(word1)
+              # 英語の単語で辞書にない場合は大文字、アンダースコア、空白で分割を試みる
+            if not isWord1InVocab and (any(c.isupper() for c in word1) or '_' in word1 or ' ' in word1):
+                split_words1 = split_by_caps_underscores_spaces(word1)
                 # 分割された単語がボキャブラリーにあるかチェック
                 if all(w in model for w in split_words1):
                     processed_word1 = split_words1
                     isWord1InVocab = True
                 
-            if not isWord2InVocab and any(c.isupper() for c in word2):
-                split_words2 = split_by_capitals(word2)
+            if not isWord2InVocab and (any(c.isupper() for c in word2) or '_' in word2 or ' ' in word2):
+                split_words2 = split_by_caps_underscores_spaces(word2)
                 # 分割された単語がボキャブラリーにあるかチェック
                 if all(w in model for w in split_words2):
                     processed_word2 = split_words2
