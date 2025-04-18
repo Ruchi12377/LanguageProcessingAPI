@@ -8,8 +8,9 @@ import MeCab
 from typing import List, Dict, Any, Tuple, Optional
 from flask_cors import CORS
 import re
-from numpy import dot
+from numpy import dot, array
 from numpy.linalg import norm
+from utils import split_by_caps_underscores_spaces, calculate_vector_for_word, calculate_average_vector, calculate_similarity_between_vectors
 
 # 環境変数の読み込み
 load_dotenv()
@@ -56,8 +57,8 @@ def parse() -> Dict[str, Any]:
               for line in parsed.split("\n") if line and "\t" in line]
     return jsonify(result)
 
-@app.route("/distance", methods=["POST"])
-def distance() -> Dict[str, Any]:
+@app.route("/similarity", methods=["POST"])
+def similarity() -> Dict[str, Any]:
     """単語間の類似度を計算する
 
     Returns:
@@ -86,80 +87,6 @@ def distance() -> Dict[str, Any]:
         "pairs": result,
         "error": ""
     })
-
-def split_by_capitals(word: str) -> List[str]:
-    """英語の単語を大文字で分割する。ただし、大文字が連続している場合（acronym）は分割しない。
-    
-    Args:
-        word (str): 分割する単語
-        
-    Returns:
-        List[str]: 分割された単語のリスト
-    """
-    if not word:
-        return []
-        
-    # 連続する大文字を一つのグループとし、その後の小文字も含めたパターン
-    pattern = r'[A-Z]+[a-z]*'
-    
-    # 単語の先頭が小文字の場合、それを最初の部分として取得
-    first_part = ""
-    if word and word[0].islower():
-        match = re.match(r'^[a-z]+', word)
-        if match:
-            first_part = match.group(0)
-            word = word[len(first_part):]
-    
-    # 残りの部分を大文字のパターンで分割
-    parts = re.findall(pattern, word)
-    
-    # 先頭の小文字部分があれば追加
-    result = []
-    if first_part:
-        result.append(first_part)
-    result.extend(parts)
-    
-    return [p for p in result if p]
-
-def split_by_caps_underscores_spaces(word: str) -> List[str]:
-    """英語の単語を大文字、アンダースコア、空白で分割する。
-    
-    Args:
-        word (str): 分割する単語
-        
-    Returns:
-        List[str]: 分割された単語のリスト
-    """
-    if not word:
-        return []
-    
-    # まず、アンダースコアと空白で分割
-    parts = re.split(r'[_\s]+', word)
-    result = []
-    
-    # 各部分をさらに大文字で分割
-    for part in parts:
-        if not part:
-            continue
-            
-        # 先頭が小文字の場合の処理
-        first_part = ""
-        current_part = part
-        if part and part[0].islower():
-            match = re.match(r'^[a-z0-9]+', part)
-            if match:
-                first_part = match.group(0)
-                current_part = part[len(first_part):]
-        
-        # 大文字で始まる部分を分割
-        cap_parts = re.findall(r'[A-Z]+[a-z0-9]*', current_part)
-        
-        # 結果に追加
-        if first_part:
-            result.append(first_part)
-        result.extend(cap_parts)
-    
-    return [p.lower() for p in result if p]
 
 def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
     """単語ペアの処理を行い類似度を計算する
@@ -243,6 +170,41 @@ def process_word_pairs(pairs: List) -> List[Dict[str, str]]:
         })
 
     return result
+
+@app.route("/vector", methods=["POST"])
+def get_vector() -> Dict[str, Any]:
+    """テキストの配列を受け取り、その平均ベクトルを返す
+    
+    Returns:
+        Dict[str, Any]: ベクトル計算の結果
+    """
+    error_response = validate_request()
+    if error_response:
+        return jsonify(error_response[0]), error_response[1]
+        
+    if request.headers.get("Content-Type") != "application/json":
+        return jsonify({
+            "success": False,
+            "error": "Content-Type is wrong"
+        })
+    
+    data = request.get_json()
+    texts = data.get("texts")
+    
+    if texts is None:
+        return jsonify({
+            "success": False,
+            "error": "Missing texts array"
+        })
+    
+    if not isinstance(texts, list):
+        return jsonify({
+            "success": False,
+            "error": "texts must be an array"
+        })
+    
+    result = calculate_average_vector(texts, model)
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
