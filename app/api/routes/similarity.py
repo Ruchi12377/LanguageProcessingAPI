@@ -9,7 +9,7 @@ from app.api.validators import validate_json_content_type, validate_required_jso
 # ルートの設定
 similarity_bp = Blueprint('similarity', __name__)
 
-@similarity_bp.route('/api/v1/similarity', methods=['POST'])
+@similarity_bp.route('/v1/similarity', methods=['POST'])
 @validate_json_content_type
 @validate_required_json_fields(['pairs'])
 def calculate_similarity():

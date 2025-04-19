@@ -9,7 +9,7 @@ from app.api.validators import validate_json_content_type, validate_required_jso
 # ルートの設定
 parse_bp = Blueprint('parse', __name__)
 
-@parse_bp.route('/api/v1/parse', methods=['POST'])
+@parse_bp.route('/v1/parse', methods=['POST'])
 @validate_json_content_type
 @validate_required_json_fields(['text'])
 def parse_text():

@@ -11,7 +11,7 @@ from app.core.vector_model import get_word_vector, calculate_average_vector
 # ルートの設定
 vector_bp = Blueprint('vector', __name__)
 
-@vector_bp.route('/api/v1/vector/word', methods=['POST'])
+@vector_bp.route('/v1/vector/word', methods=['POST'])
 @validate_json_content_type
 @validate_required_json_fields(['word'])
 def get_word_vector_route():
@@ -32,7 +32,7 @@ def get_word_vector_route():
     result = get_word_vector(word, model, mecab_tagger)
     return result
 
-@vector_bp.route('/api/v1/vector/texts', methods=['POST'])
+@vector_bp.route('/v1/vector/texts', methods=['POST'])
 @validate_json_content_type
 @validate_required_json_fields(['texts'])
 def calculate_texts_vector():
