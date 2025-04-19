@@ -15,7 +15,7 @@ vector_bp = Blueprint('vector', __name__)
 @validate_json_content_type
 @validate_required_json_fields(['word'])
 def get_word_vector_route():
-    """単語を受け取り、ベクトルを返す。モデルに存在しない場合は分かち書きしてベクトルの平均を返す"""
+    """単語を受け取り、ベクトルを返す。"""
     data = request.get_json()
     word = data.get("word")
 
@@ -27,9 +27,8 @@ def get_word_vector_route():
 
     # モデルとMeCabインスタンスはアプリケーションコンテキストから取得
     model = current_app.config['VECTOR_MODEL']
-    mecab_tagger = current_app.config['MECAB_TAGGER']
 
-    result = get_word_vector(word, model, mecab_tagger)
+    result = get_word_vector(word, model)
     return result
 
 @vector_bp.route('/v1/vector/texts', methods=['POST'])
