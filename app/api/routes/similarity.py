@@ -3,7 +3,7 @@
 """
 from flask import request, current_app, Blueprint
 
-from app.core.vector_model import process_word_pairs
+from app.utils.text_processing import process_word_pairs
 from app.api.validators import validate_json_content_type, validate_required_json_fields
 
 # ルートの設定

@@ -9,7 +9,7 @@ import MeCab
 from app.api.routes.parse import parse_bp
 from app.api.routes.similarity import similarity_bp
 from app.api.routes.vector import vector_bp
-from app.core.vector_model import VectorModel
+from app.core.plamo_embedding import PlamoEmbedding
 
 def create_app(test_config=None):
     """アプリケーションファクトリー関数
@@ -26,7 +26,7 @@ def create_app(test_config=None):
     # 設定の読み込み
     app.config.from_mapping(
         SECRET_KEY=os.getenv('SECRET_KEY', 'dev'),
-        MODEL_PATH=os.getenv('MODEL_PATH', './model_gensim_norm'),
+        PLAMO_MODEL_NAME=os.getenv('PLAMO_MODEL_NAME', 'pfnet/plamo-embedding-1b'),
         MECAB_DICT_PATH=os.getenv('MECAB_DICT_PATH', '/opt/homebrew/lib/mecab/dic/mecab-ipadic-neologd'),
         API_KEYS=os.getenv('API_KEYS', 'default-key')
     )
@@ -44,9 +44,10 @@ def create_app(test_config=None):
     except OSError:
         pass
     
-    # モデルの初期化
-    model_path = app.config['MODEL_PATH']
-    app.config['VECTOR_MODEL'] = VectorModel(model_path)
+    # Plamo埋め込みモデルを初期化
+    plamo_model_name = app.config['PLAMO_MODEL_NAME']
+    app.config['VECTOR_MODEL'] = PlamoEmbedding(plamo_model_name)
+    app.logger.info(f"Using Plamo Embedding model: {plamo_model_name}")
     
     # MeCabの初期化
     mecab_dict_path = app.config['MECAB_DICT_PATH']

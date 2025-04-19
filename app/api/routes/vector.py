@@ -6,7 +6,7 @@ from flask import request, current_app, Blueprint
 from app.api.validators import (
     validate_json_content_type, validate_required_json_fields
 )
-from app.core.vector_model import get_word_vector, calculate_average_vector
+from app.utils.text_processing import get_word_vector, calculate_average_vector
 
 # ルートの設定
 vector_bp = Blueprint('vector', __name__)
