@@ -57,7 +57,7 @@ def create_app(test_config=None):
     def authenticate():
         """リクエスト前にAPI認証を行う処理"""
         # API v1エンドポイントのみ認証対象
-        if not request.path.startswith('/api/v1'):
+        if not request.path.startswith('/v1'):
             return None
             
         api_key = request.headers.get('X-API-KEY')
