@@ -5,7 +5,10 @@ import os
 from flask import Flask, request, abort
 import MeCab
 
-from app.api import api_bp
+# Blueprintのインポート
+from app.api.routes.parse import parse_bp
+from app.api.routes.similarity import similarity_bp
+from app.api.routes.vector import vector_bp
 from app.core.vector_model import VectorModel
 
 def create_app(test_config=None):
@@ -52,15 +55,7 @@ def create_app(test_config=None):
     # API認証処理の追加
     @app.before_request
     def authenticate():
-        """リクエスト前にAPI認証を行う処理（swagger.jsonエンドポイントとドキュメントを除く）"""
-        # swagger.json エンドポイントは認証から除外
-        if request.path.endswith('/swagger.json'):
-            return None
-            
-        # docs パスも認証から除外
-        if '/docs' in request.path:
-            return None
-            
+        """リクエスト前にAPI認証を行う処理"""
         # API v1エンドポイントのみ認証対象
         if not request.path.startswith('/api/v1'):
             return None
@@ -72,7 +67,9 @@ def create_app(test_config=None):
             abort(401, description='Invalid API Key')
     
     # Blueprintの登録
-    app.register_blueprint(api_bp)
+    app.register_blueprint(parse_bp)
+    app.register_blueprint(similarity_bp)
+    app.register_blueprint(vector_bp)
     
     # CORSの設定
     from flask_cors import CORS
@@ -81,7 +78,7 @@ def create_app(test_config=None):
     # ルートエンドポイント
     @app.route('/')
     def index():
-        """ルートエンドポイント - APIのバージョンとドキュメントへのリンクを返す"""
+        """ルートエンドポイント - APIのバージョン情報を返す"""
         return {
             'service': '言語処理API',
             'version': '1.0.0',
