@@ -49,6 +49,28 @@ def create_app(test_config=None):
     mecab_dict_path = app.config['MECAB_DICT_PATH']
     app.config['MECAB_TAGGER'] = MeCab.Tagger(f"-d {mecab_dict_path}")
     
+    # API認証処理の追加
+    @app.before_request
+    def authenticate():
+        """リクエスト前にAPI認証を行う処理（swagger.jsonエンドポイントとドキュメントを除く）"""
+        # swagger.json エンドポイントは認証から除外
+        if request.path.endswith('/swagger.json'):
+            return None
+            
+        # docs パスも認証から除外
+        if '/docs' in request.path:
+            return None
+            
+        # API v1エンドポイントのみ認証対象
+        if not request.path.startswith('/api/v1'):
+            return None
+            
+        api_key = request.headers.get('X-API-KEY')
+        valid_api_keys = app.config.get('API_KEYS', '').split(',')
+        
+        if not api_key or api_key not in valid_api_keys:
+            abort(401, description='Invalid API Key')
+    
     # Blueprintの登録
     app.register_blueprint(api_bp)
     
@@ -64,7 +86,5 @@ def create_app(test_config=None):
             'service': '言語処理API',
             'version': '1.0.0',
         }
-    
-    # API認証を削除
     
     return app

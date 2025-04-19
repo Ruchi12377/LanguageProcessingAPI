@@ -22,7 +22,8 @@ api = Api(
     title='言語処理API',
     description='テキスト解析と単語ベクトル処理のためのAPI',
     doc='/docs',
-    authorizations=authorizations
+    authorizations=authorizations,
+    security='apikey'
 )
 
 # APIのNamespaceをインポート
