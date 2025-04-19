@@ -137,7 +137,8 @@ def get_word_vector(word: str, model: VectorModel, mecab_tagger: MeCab.Tagger) -
     }
 
 def calculate_average_vector(texts: List[str], model: VectorModel, mecab_tagger: MeCab.Tagger) -> Dict[str, Any]:
-    """テキストのリストから平均ベクトルを計算する。日本語テキストの場合は分かち書きで処理する
+    """テキストのリストから平均ベクトルを計算する。日本語テキストの場合は分かち書きで処理する。
+    空白およびアンダースコアで区切られたテキストは複合語として処理し、平均ベクトルを返す。
     
     Args:
         texts (List[str]): テキストのリスト
@@ -156,33 +157,78 @@ def calculate_average_vector(texts: List[str], model: VectorModel, mecab_tagger:
     processed_words = []
     
     for text in texts:
-        # まず、直接単語ベクトルを取得できるか試みる
-        vector = calculate_vector_for_word(text, model)
-        if vector is not None:
-            vectors.append(vector)
-            processed_words.append({"original": text, "used": [text]})
-            continue
+        # 空白とアンダースコアで分割
+        is_compound = False
+        compound_parts = []
         
-        # 直接取得できない場合、日本語テキストとして処理を試みる
-        # テキストから名詞、形容詞、動詞を抽出
-        extracted = extract_words_from_text(text, mecab_tagger)
-        words_to_process = [word_info["word"] for word_info in extracted["ordered_words"]]
+        # 空白で分割
+        space_parts = text.split()
+        if len(space_parts) > 1:
+            is_compound = True
         
-        # 抽出された単語がある場合
-        if words_to_process:
-            # モデルに存在する単語だけを使用
-            valid_words = [w for w in words_to_process if w in model]
+        # 各部分をさらにアンダースコアで分割
+        all_parts = []
+        for part in space_parts:
+            underscore_parts = part.split('_')
+            if len(underscore_parts) > 1:
+                is_compound = True
+            all_parts.extend([p.strip() for p in underscore_parts if p.strip()])
             
-            if valid_words:
-                # 単語のベクトルの平均を計算
-                text_vectors = [model.get_vector(w) for w in valid_words]
-                text_avg_vector = mean(text_vectors, axis=0)
-                vectors.append(text_avg_vector)
-                processed_words.append({"original": text, "used": valid_words})
-                continue
+        # 分割がなかった場合はオリジナルのテキストを使用
+        if not all_parts:
+            all_parts = [text]
+            
+        # 分割された部分を保存
+        compound_parts = all_parts
+            
+        # 分割したパーツのベクトルを計算
+        part_vectors = []
+        valid_parts = []
         
-        # 処理できなかった単語は記録
-        missing_words.append(text)
+        for part in compound_parts:
+            # まず、直接単語ベクトルを取得できるか試みる
+            vector = calculate_vector_for_word(part, model)
+            if vector is not None:
+                part_vectors.append(vector)
+                valid_parts.append(part)
+                continue
+            
+            # 直接取得できない場合、日本語テキストとして処理を試みる
+            extracted = extract_words_from_text(part, mecab_tagger)
+            words_to_process = [word_info["word"] for word_info in extracted["ordered_words"]]
+            
+            # 抽出された単語がある場合
+            if words_to_process:
+                valid_words = [w for w in words_to_process if w in model]
+                
+                if valid_words:
+                    # 単語のベクトルの平均を計算
+                    word_vectors = [model.get_vector(w) for w in valid_words]
+                    word_avg_vector = mean(word_vectors, axis=0)
+                    part_vectors.append(word_avg_vector)
+                    valid_parts.extend(valid_words)
+        
+        # パーツのベクトルが見つかった場合
+        if part_vectors:
+            # 複合語の場合は平均ベクトルを計算
+            if is_compound or len(part_vectors) > 1:
+                text_avg_vector = mean(part_vectors, axis=0)
+                vectors.append(text_avg_vector)
+                processed_words.append({
+                    "original": text,
+                    "used": valid_parts,
+                    "is_compound": True
+                })
+            else:
+                # 単一の単語の場合はそのベクトルを使用
+                vectors.append(part_vectors[0])
+                processed_words.append({
+                    "original": text,
+                    "used": valid_parts
+                })
+        else:
+            # 処理できなかった単語は記録
+            missing_words.append(text)
     
     # ベクトルが見つからなかった場合
     if not vectors:

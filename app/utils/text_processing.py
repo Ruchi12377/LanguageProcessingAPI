@@ -31,12 +31,12 @@ def calculate_vector_for_word(word: str, model, try_split: bool = True) -> Optio
         Optional[ndarray]: 単語のベクトル。単語がモデルに見つからない場合はNone
     """
     if word in model:
-        return model[word]
+        return model.get_vector(word)
     
     if try_split and (any(c.isupper() for c in word) or '_' in word or ' ' in word):
         split_words = split_by_caps_underscores_spaces(word)
         if all(w in model for w in split_words) and split_words:
-            return mean([model[w] for w in split_words], axis=0)
+            return mean([model.get_vector(w) for w in split_words], axis=0)
     
     return None
 
