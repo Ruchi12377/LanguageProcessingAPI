@@ -74,27 +74,6 @@ class PlamoEmbedding:
         # NumPy配列に変換して返す
         return embedding.cpu().numpy()
     
-    def encode_documents(self, texts: List[str]) -> np.ndarray:
-        """複数のテキストをベクトルに変換する
-        
-        Args:
-            texts (List[str]): エンコードするテキストのリスト
-            
-        Returns:
-            np.ndarray: テキストの埋め込みベクトル
-            
-        Raises:
-            RuntimeError: モデルが初期化されていない場合
-        """
-        if not self.is_initialized:
-            raise RuntimeError("Plamo embedding model is not initialized")
-            
-        with self.torch.inference_mode():
-            embeddings = self.model.encode_document(texts, self.tokenizer)
-        
-        # NumPy配列に変換して返す
-        return embeddings.cpu().numpy()
-    
     def similarity(self, text1: str, text2: str) -> float:
         """2つのテキスト間の類似度を計算する
         
@@ -133,7 +112,7 @@ class PlamoEmbedding:
         """
         if not self.is_initialized:
             raise RuntimeError("Plamo embedding model is not initialized")
-        return self.encode_documents([text])[0]
+        return self.encode_query([text])[0]
     
     def __contains__(self, text: str) -> bool:
         """テキストがモデルで処理可能かどうかを返す

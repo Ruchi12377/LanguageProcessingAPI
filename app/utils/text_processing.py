@@ -73,7 +73,7 @@ def calculate_average_vector(texts: List[str], model) -> Dict[str, Any]:
     
     try:
         # テキストを埋め込みベクトルに変換
-        embeddings = model.encode_documents(texts)
+        embeddings = model.encode_query(texts)
         
         # 平均ベクトルを計算（複数テキストの場合）
         if len(embeddings) > 1:
