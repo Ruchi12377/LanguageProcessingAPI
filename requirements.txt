@@ -2,7 +2,6 @@ Flask
 flask-cors
 python-dotenv
 gunicorn
-gensim
 mecab-python3
 sentencepiece
 torch
