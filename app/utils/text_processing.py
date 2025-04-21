@@ -7,18 +7,6 @@ import numpy as np
 from numpy import ndarray, dot, mean
 from numpy.linalg import norm
 
-def normalize_vector(vector: ndarray) -> ndarray:
-    """ベクトルを正規化する
-
-    Args:
-        vector (ndarray): 正規化するベクトル
-
-    Returns:
-        ndarray: 正規化されたベクトル
-    """
-    norm_value = norm(vector)
-    return vector / norm_value if norm_value > 0 else vector
-
 def parse_japanese_text(text: str, mecab_tagger: Optional[MeCab.Tagger] = None) -> List[Dict[str, str]]:
     """日本語のテキストを形態素解析する
 
@@ -93,12 +81,9 @@ def calculate_average_vector(texts: List[str], model) -> Dict[str, Any]:
         else:
             average_vector = embeddings[0]
         
-        # 正規化
-        normalized_vector = normalize_vector(average_vector)
-        
         return {
             "success": True,
-            "vector": normalized_vector.tolist(),  # JSONシリアライズ可能な形式に変換
+            "vector": average_vector.tolist(),  # JSONシリアライズ可能な形式に変換
             "model": "plamo-embedding"
         }
     except Exception as e:
