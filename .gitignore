@@ -30,3 +30,6 @@ __pycache__/
 
 .env
 .venv/
+
+
+/instance/vector_cache.db
