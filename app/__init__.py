@@ -49,7 +49,7 @@ def create_app(test_config=None):
     
     # Plamo埋め込みモデルを初期化
     plamo_model_name = app.config['PLAMO_MODEL_NAME']
-    app.config['VECTOR_MODEL'] = PlamoEmbedding(plamo_model_name)
+    app.config['VECTOR_MODEL'] = PlamoEmbedding(plamo_model_name, use_fp16=True)
     app.logger.info(f"Using Plamo Embedding model: {plamo_model_name}")
     
     # MeCabの初期化
