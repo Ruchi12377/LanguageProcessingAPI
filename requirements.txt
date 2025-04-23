@@ -6,3 +6,4 @@ mecab-python3
 sentencepiece
 torch
 transformers
+sqlite3

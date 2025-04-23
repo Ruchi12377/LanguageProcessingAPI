@@ -10,6 +10,7 @@ from app.api.routes.parse import parse_bp
 from app.api.routes.similarity import similarity_bp
 from app.api.routes.vector import vector_bp
 from app.core.plamo_embedding import PlamoEmbedding
+from app.utils.vector_cache import VectorCache
 
 def create_app(test_config=None):
     """アプリケーションファクトリー関数
@@ -28,7 +29,9 @@ def create_app(test_config=None):
         SECRET_KEY=os.getenv('SECRET_KEY', 'dev'),
         PLAMO_MODEL_NAME=os.getenv('PLAMO_MODEL_NAME', 'pfnet/plamo-embedding-1b'),
         MECAB_DICT_PATH=os.getenv('MECAB_DICT_PATH', '/opt/homebrew/lib/mecab/dic/mecab-ipadic-neologd'),
-        API_KEYS=os.getenv('API_KEYS', 'default-key')
+        API_KEYS=os.getenv('API_KEYS', 'default-key'),
+        VECTOR_CACHE_PATH=os.getenv('VECTOR_CACHE_PATH', None),
+        VECTOR_CACHE_ENABLED=os.getenv('VECTOR_CACHE_ENABLED', '1') == '1'
     )
 
     if test_config is None:
@@ -52,6 +55,18 @@ def create_app(test_config=None):
     # MeCabの初期化
     mecab_dict_path = app.config['MECAB_DICT_PATH']
     app.config['MECAB_TAGGER'] = MeCab.Tagger(f"-d {mecab_dict_path}")
+    
+    # ベクトルキャッシュの初期化（設定で有効の場合）
+    if app.config['VECTOR_CACHE_ENABLED']:
+        app.logger.info("Initializing vector cache")
+        app.config['VECTOR_CACHE'] = VectorCache(app.config['VECTOR_CACHE_PATH'])
+        
+        # キャッシュ統計情報をログに出力
+        try:
+            stats = app.config['VECTOR_CACHE'].get_stats()
+            app.logger.info(f"Vector cache contains {stats['total_entries']} entries")
+        except Exception as e:
+            app.logger.error(f"Error getting cache stats: {str(e)}")
     
     # API認証処理の追加
     @app.before_request

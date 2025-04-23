@@ -3,9 +3,12 @@
 """
 from typing import List, Dict, Any, Optional
 import MeCab
-import numpy as np
-from numpy import ndarray, dot, mean
-from numpy.linalg import norm
+from numpy import mean
+from flask import current_app
+import logging
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 def parse_japanese_text(text: str, mecab_tagger: Optional[MeCab.Tagger] = None) -> List[Dict[str, str]]:
     """日本語のテキストを形態素解析する
@@ -25,7 +28,7 @@ def parse_japanese_text(text: str, mecab_tagger: Optional[MeCab.Tagger] = None) 
             for line in parsed.split("\n") if line and "\t" in line]
 
 def get_word_vector(word: str, model) -> Dict[str, Any]:
-    """単語のベクトルを取得する。PlamoEmbeddingモデルを使用。
+    """単語のベクトルを取得する。PlamoEmbeddingモデルを使用。キャッシュから取得できる場合はそれを使用。
 
     Args:
         word (str): 単語
@@ -38,15 +41,41 @@ def get_word_vector(word: str, model) -> Dict[str, Any]:
     if not isinstance(model, PlamoEmbedding) or not model.is_initialized:
         return {"success": False, "error": "Plamo embedding model is not initialized"}
     
+    # モデル名の取得
+    model_name = getattr(model, 'model_name', 'plamo-embedding')
+    
     try:
-        # Plamoはどんな単語も直接ベクトル化できる
+        # キャッシュが有効かチェック
+        cache_enabled = current_app.config.get('VECTOR_CACHE_ENABLED', False)
+        vector_cache = current_app.config.get('VECTOR_CACHE', None) if cache_enabled else None
+        
+        # キャッシュ内にあるか確認
+        if vector_cache:
+            cached_vector = vector_cache.get_vector(word, model_name)
+            if cached_vector is not None:
+                logger.debug(f"Cache hit for word: {word}")
+                return {
+                    "success": True,
+                    "vector": cached_vector.tolist(),
+                    "model": model_name,
+                    "from_cache": True
+                }
+        
+        # キャッシュになければ計算
         vector = model.get_vector(word)
+        
+        # キャッシュに保存
+        if vector_cache:
+            vector_cache.save_vector(word, model_name, vector)
+            logger.debug(f"Cached vector for word: {word}")
+        
         return {
             "success": True,
             "vector": vector.tolist(),
-            "model": "plamo-embedding"
+            "model": model_name
         }
     except Exception as e:
+        logger.error(f"Error computing embedding for word '{word}': {str(e)}")
         return {
             "success": False,
             "error": f"Error computing embedding with Plamo model: {str(e)}"
@@ -71,9 +100,58 @@ def calculate_average_vector(texts: List[str], model) -> Dict[str, Any]:
     if not isinstance(model, PlamoEmbedding) or not model.is_initialized:
         return {"success": False, "error": "Plamo embedding model is not initialized"}
     
+    # モデル名の取得
+    model_name = getattr(model, 'model_name', 'plamo-embedding')
+    
     try:
-        # テキストを埋め込みベクトルに変換
-        embeddings = model.encode_query(texts)
+        # キャッシュが有効かチェック
+        cache_enabled = current_app.config.get('VECTOR_CACHE_ENABLED', False)
+        vector_cache = current_app.config.get('VECTOR_CACHE', None) if cache_enabled else None
+        
+        # 全テキストに対する埋め込みベクトル（キャッシュ利用または新規計算）
+        embeddings = []
+        uncached_texts = []
+        uncached_indices = []
+        
+        # まず、キャッシュからベクトルを取得
+        if vector_cache:
+            for i, text in enumerate(texts):
+                cached_vector = vector_cache.get_vector(text, model_name)
+                if cached_vector is not None:
+                    embeddings.append(cached_vector)
+                    logger.debug(f"Cache hit for text: {text[:20]}...")
+                else:
+                    uncached_texts.append(text)
+                    uncached_indices.append(i)
+        else:
+            uncached_texts = texts
+            uncached_indices = list(range(len(texts)))
+        
+        # キャッシュにないテキストはモデルで計算
+        if uncached_texts:
+            new_embeddings = model.encode_query(uncached_texts)
+            
+            # キャッシュに保存
+            if vector_cache:
+                for i, text in enumerate(uncached_texts):
+                    vector_cache.save_vector(text, model_name, new_embeddings[i])
+                    logger.debug(f"Cached vector for text: {text[:20]}...")
+            
+            # 正しい位置に挿入するため、元の順序を維持
+            full_embeddings = [None] * len(texts)
+            cached_idx = 0
+            
+            for i in range(len(texts)):
+                if i in uncached_indices:
+                    # キャッシュになかったテキスト
+                    unc_idx = uncached_indices.index(i)
+                    full_embeddings[i] = new_embeddings[unc_idx]
+                else:
+                    # キャッシュにあったテキスト
+                    full_embeddings[i] = embeddings[cached_idx]
+                    cached_idx += 1
+                    
+            embeddings = full_embeddings
         
         # 平均ベクトルを計算（複数テキストの場合）
         if len(embeddings) > 1:
@@ -84,9 +162,10 @@ def calculate_average_vector(texts: List[str], model) -> Dict[str, Any]:
         return {
             "success": True,
             "vector": average_vector.tolist(),  # JSONシリアライズ可能な形式に変換
-            "model": "plamo-embedding"
+            "model": model_name
         }
     except Exception as e:
+        logger.error(f"Error computing embeddings: {str(e)}")
         return {
             "success": False,
             "error": f"Error computing embeddings with Plamo model: {str(e)}"
