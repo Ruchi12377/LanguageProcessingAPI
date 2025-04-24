@@ -3,10 +3,8 @@
 """
 import os
 from flask import Flask, request, abort
-import MeCab
 
 # Blueprintのインポート
-from app.api.routes.parse import parse_bp
 from app.api.routes.similarity import similarity_bp
 from app.api.routes.vector import vector_bp
 from app.core.plamo_embedding import PlamoEmbedding
@@ -28,7 +26,6 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SECRET_KEY=os.getenv('SECRET_KEY', 'dev'),
         PLAMO_MODEL_NAME=os.getenv('PLAMO_MODEL_NAME', 'pfnet/plamo-embedding-1b'),
-        MECAB_DICT_PATH=os.getenv('MECAB_DICT_PATH', '/opt/homebrew/lib/mecab/dic/mecab-ipadic-neologd'),
         API_KEYS=os.getenv('API_KEYS', 'default-key'),
         VECTOR_CACHE_PATH=os.getenv('VECTOR_CACHE_PATH', None),
         VECTOR_CACHE_ENABLED=os.getenv('VECTOR_CACHE_ENABLED', '1') == '1'
@@ -51,10 +48,6 @@ def create_app(test_config=None):
     plamo_model_name = app.config['PLAMO_MODEL_NAME']
     app.config['VECTOR_MODEL'] = PlamoEmbedding(plamo_model_name, use_fp16=True)
     app.logger.info(f"Using Plamo Embedding model: {plamo_model_name}")
-    
-    # MeCabの初期化
-    mecab_dict_path = app.config['MECAB_DICT_PATH']
-    app.config['MECAB_TAGGER'] = MeCab.Tagger(f"-d {mecab_dict_path}")
     
     # ベクトルキャッシュの初期化（設定で有効の場合）
     if app.config['VECTOR_CACHE_ENABLED']:
@@ -83,7 +76,6 @@ def create_app(test_config=None):
             abort(401, description='Invalid API Key')
     
     # Blueprintの登録
-    app.register_blueprint(parse_bp)
     app.register_blueprint(similarity_bp)
     app.register_blueprint(vector_bp)
     

@@ -2,7 +2,6 @@
 テキスト処理のユーティリティ関数を提供するモジュール
 """
 from typing import List, Dict, Any, Optional
-import MeCab
 from numpy import mean
 from flask import current_app
 import logging
@@ -10,22 +9,7 @@ import logging
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
-def parse_japanese_text(text: str, mecab_tagger: Optional[MeCab.Tagger] = None) -> List[Dict[str, str]]:
-    """日本語のテキストを形態素解析する
 
-    Args:
-        text (str): 解析する日本語テキスト
-        mecab_tagger (Optional[MeCab.Tagger]): MeCabのTaggerオブジェクト。Noneの場合は新しく作成します。
-
-    Returns:
-        List[Dict[str, str]]: 形態素解析の結果（surface: 表層形, feature: 品詞情報など）
-    """
-    if mecab_tagger is None:
-        mecab_tagger = MeCab.Tagger()
-
-    parsed = mecab_tagger.parse(text)
-    return [{"surface": line.split("\t")[0], "feature": line.split("\t")[1]}
-            for line in parsed.split("\n") if line and "\t" in line]
 
 def get_word_vector(word: str, model) -> Dict[str, Any]:
     """単語のベクトルを取得する。PlamoEmbeddingモデルを使用。キャッシュから取得できる場合はそれを使用。
