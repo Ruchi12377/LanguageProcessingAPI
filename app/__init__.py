@@ -27,8 +27,6 @@ def create_app(test_config=None):
         SECRET_KEY=os.getenv('SECRET_KEY', 'dev'),
         PLAMO_MODEL_NAME=os.getenv('PLAMO_MODEL_NAME', 'pfnet/plamo-embedding-1b'),
         API_KEYS=os.getenv('API_KEYS', 'default-key'),
-        VECTOR_CACHE_PATH=os.getenv('VECTOR_CACHE_PATH', None),
-        VECTOR_CACHE_ENABLED=os.getenv('VECTOR_CACHE_ENABLED', '1') == '1'
     )
 
     if test_config is None:
@@ -49,17 +47,18 @@ def create_app(test_config=None):
     app.config['VECTOR_MODEL'] = PlamoEmbedding(plamo_model_name, use_fp16=True)
     app.logger.info(f"Using Plamo Embedding model: {plamo_model_name}")
     
-    # ベクトルキャッシュの初期化（設定で有効の場合）
-    if app.config['VECTOR_CACHE_ENABLED']:
-        app.logger.info("Initializing vector cache")
-        app.config['VECTOR_CACHE'] = VectorCache(app.config['VECTOR_CACHE_PATH'])
-        
-        # キャッシュ統計情報をログに出力
-        try:
-            stats = app.config['VECTOR_CACHE'].get_stats()
-            app.logger.info(f"Vector cache contains {stats['total_entries']} entries")
-        except Exception as e:
-            app.logger.error(f"Error getting cache stats: {str(e)}")
+    # ベクトルキャッシュの初期化（常に有効）
+    app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    vector_cache_path = os.path.join(app_root, 'instance', 'vector_cache.db')
+    app.logger.info("Initializing vector cache")
+    app.config['VECTOR_CACHE'] = VectorCache(vector_cache_path)
+
+    # キャッシュ統計情報をログに出力
+    try:
+        stats = app.config['VECTOR_CACHE'].get_stats()
+        app.logger.info(f"Vector cache contains {stats['total_entries']} entries")
+    except Exception as e:
+        app.logger.error(f"Error getting cache stats: {str(e)}")
     
     # API認証処理の追加
     @app.before_request

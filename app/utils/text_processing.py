@@ -22,6 +22,8 @@ def get_word_vector(word: str, model) -> Dict[str, Any]:
         Dict[str, Any]: 結果の辞書
     """
     from app.core.plamo_embedding import PlamoEmbedding
+    from app.utils.vector_cache import VectorCache
+    
     if not isinstance(model, PlamoEmbedding) or not model.is_initialized:
         return {"success": False, "error": "Plamo embedding model is not initialized"}
     
@@ -29,29 +31,30 @@ def get_word_vector(word: str, model) -> Dict[str, Any]:
     model_name = getattr(model, 'model_name', 'plamo-embedding')
     
     try:
-        # キャッシュが有効かチェック
-        cache_enabled = current_app.config.get('VECTOR_CACHE_ENABLED', False)
-        vector_cache = current_app.config.get('VECTOR_CACHE', None) if cache_enabled else None
+        # キャッシュを常に使用
+        vector_cache = current_app.config.get('VECTOR_CACHE')
+        if not vector_cache:
+            vector_cache = VectorCache()
+            # 新しく作成したキャッシュを設定
+            current_app.config['VECTOR_CACHE'] = vector_cache
         
         # キャッシュ内にあるか確認
-        if vector_cache:
-            cached_vector = vector_cache.get_vector(word, model_name)
-            if cached_vector is not None:
-                logger.debug(f"Cache hit for word: {word}")
-                return {
-                    "success": True,
-                    "vector": cached_vector.tolist(),
-                    "model": model_name,
-                    "from_cache": True
-                }
+        cached_vector = vector_cache.get_vector(word, model_name)
+        if cached_vector is not None:
+            logger.debug(f"Cache hit for word: {word}")
+            return {
+                "success": True,
+                "vector": cached_vector.tolist(),
+                "model": model_name,
+                "from_cache": True
+            }
         
         # キャッシュになければ計算
         vector = model.get_vector(word)
         
-        # キャッシュに保存
-        if vector_cache:
-            vector_cache.save_vector(word, model_name, vector)
-            logger.debug(f"Cached vector for word: {word}")
+        # 常にキャッシュに保存
+        vector_cache.save_vector(word, model_name, vector)
+        logger.debug(f"Cached vector for word: {word}")
         
         return {
             "success": True,
@@ -88,9 +91,14 @@ def calculate_average_vector(texts: List[str], model) -> Dict[str, Any]:
     model_name = getattr(model, 'model_name', 'plamo-embedding')
     
     try:
-        # キャッシュが有効かチェック
-        cache_enabled = current_app.config.get('VECTOR_CACHE_ENABLED', False)
-        vector_cache = current_app.config.get('VECTOR_CACHE', None) if cache_enabled else None
+        # キャッシュを常に使用
+        from app.utils.vector_cache import VectorCache
+        
+        vector_cache = current_app.config.get('VECTOR_CACHE')
+        if not vector_cache:
+            vector_cache = VectorCache()
+            # 新しく作成したキャッシュを設定
+            current_app.config['VECTOR_CACHE'] = vector_cache
         
         # 全テキストに対する埋め込みベクトル（キャッシュ利用または新規計算）
         embeddings = []
@@ -98,28 +106,23 @@ def calculate_average_vector(texts: List[str], model) -> Dict[str, Any]:
         uncached_indices = []
         
         # まず、キャッシュからベクトルを取得
-        if vector_cache:
-            for i, text in enumerate(texts):
-                cached_vector = vector_cache.get_vector(text, model_name)
-                if cached_vector is not None:
-                    embeddings.append(cached_vector)
-                    logger.debug(f"Cache hit for text: {text[:20]}...")
-                else:
-                    uncached_texts.append(text)
-                    uncached_indices.append(i)
-        else:
-            uncached_texts = texts
-            uncached_indices = list(range(len(texts)))
+        for i, text in enumerate(texts):
+            cached_vector = vector_cache.get_vector(text, model_name)
+            if cached_vector is not None:
+                embeddings.append(cached_vector)
+                logger.debug(f"Cache hit for text: {text[:20]}...")
+            else:
+                uncached_texts.append(text)
+                uncached_indices.append(i)
         
         # キャッシュにないテキストはモデルで計算
         if uncached_texts:
             new_embeddings = model.encode_query(uncached_texts)
             
-            # キャッシュに保存
-            if vector_cache:
-                for i, text in enumerate(uncached_texts):
-                    vector_cache.save_vector(text, model_name, new_embeddings[i])
-                    logger.debug(f"Cached vector for text: {text[:20]}...")
+            # 常にキャッシュに保存
+            for i, text in enumerate(uncached_texts):
+                vector_cache.save_vector(text, model_name, new_embeddings[i])
+                logger.debug(f"Cached vector for text: {text[:20]}...")
             
             # 正しい位置に挿入するため、元の順序を維持
             full_embeddings = [None] * len(texts)

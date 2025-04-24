@@ -104,14 +104,52 @@ class PlamoEmbedding:
         """
         if not self.is_initialized:
             raise RuntimeError("Plamo embedding model is not initialized")
+        
+        from flask import current_app
+        from app.utils.vector_cache import VectorCache
+        
+        # Get the vector cache or create a new one if not available
+        vector_cache = current_app.config.get('VECTOR_CACHE')
+        if not vector_cache:
+            vector_cache = VectorCache()
+            
+        # First check if we have the similarity in cache
+        cached_similarity = vector_cache.get_similarity(text1, text2, self.model_name)
+        if cached_similarity is not None:
+            return cached_similarity
             
         with self.torch.inference_mode():
-            embedding1 = self.model.encode_document([text1], self.tokenizer)
-            embedding2 = self.model.encode_document([text2], self.tokenizer)
+            # Try to get vectors from cache first
+            embedding1 = None
+            embedding2 = None
+            
+            # Always try to get vectors from cache
+            embedding1_np = vector_cache.get_vector(text1, self.model_name)
+            embedding2_np = vector_cache.get_vector(text2, self.model_name)
+            
+            if embedding1_np is not None:
+                embedding1 = self.torch.tensor(embedding1_np).to(self.device)
+            if embedding2_np is not None:
+                embedding2 = self.torch.tensor(embedding2_np).to(self.device)
+            
+            # Calculate any missing embeddings
+            if embedding1 is None:
+                embedding1 = self.model.encode_query([text1], self.tokenizer)
+                # Always cache the new vector
+                vector_cache.save_vector(text1, self.model_name, embedding1.cpu().numpy())
+                    
+            if embedding2 is None:
+                embedding2 = self.model.encode_query([text2], self.tokenizer)
+                # Always cache the new vector
+                vector_cache.save_vector(text2, self.model_name, embedding2.cpu().numpy())
             
             similarity = self.torch.nn.functional.cosine_similarity(embedding1, embedding2)
+            similarity_value = float(similarity.item())
             
-        return float(similarity.item())
+            # Always cache the similarity result
+            vector_cache.save_similarity(text1, text2, self.model_name, similarity_value)
+            
+        return similarity_value
         
     def get_vector(self, text: str) -> np.ndarray:
         """テキストをベクトルに変換する (VectorModelとインターフェースを合わせる)
