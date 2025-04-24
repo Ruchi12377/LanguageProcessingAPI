@@ -47,7 +47,7 @@ class PlamoEmbedding:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, **kwargs)
             
             logger.info(f"Loading model from '{model_name}'...")
-            self.model = AutoModel.from_pretrained(model_name, **kwargs)
+            self.model = AutoModel.from_pretrained(model_name, low_cpu_mem_usage=True, **kwargs)
             self.model = self.model.to(self.device)
             
             # GPUメモリを節約するためのオプション設定
